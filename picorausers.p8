@@ -294,7 +294,7 @@ rauser.current_type = {
 }
 
 
-local ram_prerenders = {
+local rotatable_sprites = {
 	rauser = {
 		adress = 0x2000,
 		layout = "line",
@@ -468,28 +468,28 @@ local loading_message = ""
 local loading_progress = 0
 local loading_total_ops = 16 * 7
 
-function prerender( spr_type )
+function prerender( sprite )
 	local adress_supplier =
 		make_adress_supplier(
-			spr_type.layout,
-			spr_type.adress,
-			spr_type.size * 8)
-	spr_type.prerenders = {}
+			sprite.layout,
+			sprite.adress,
+			sprite.size * 8)
+	sprite.prerenders = {}
 	for angle=0,15/16,1/16 do
 		local adress = take(adress_supplier)
 		-- printh(name .. " - " .. hex(adress) .. " - " .. angle)
-		spr_type.render_func(adress, angle)
-		spr_type.prerenders[angle] = adress
+		sprite.render_func(adress, angle)
+		sprite.prerenders[angle] = adress
 		loading_progress = loading_progress + 1
 		yield()
 	end
 end
 
 function prerender_all( )
-	for key,spr_type in pairs(ram_prerenders) do
+	for key,sprite in pairs(rotatable_sprites) do
 		name = key
 		loading_message = "prerendering: " .. name
-		prerender(spr_type)
+		prerender(sprite)
 	end
 end
 
@@ -541,7 +541,6 @@ function draw_loading( )
 end
 
 
--- caching mechanism, inspired by Boris Nagaev's lua-lru
 do
 	local map = {}
 	local lru = {}
@@ -549,25 +548,25 @@ do
 		add(lru, { owner = nil, value = 0 + i })
 	end
 
-	function find_or_create( key )
-		local tuple = map[key]
+	local function assign_sprite_num( adress )
+		local tuple = map[adress]
 		if not tuple then
 			tuple = lru[1]
 			if tuple.owner then
 				map[tuple.owner] = nil
 			end
-			tuple.owner = key
-			map[key] = tuple
+			copy_gfx(adress, adress, 8, 8)
+			tuple.owner = adress
+			map[adress] = tuple
 		end
 		del(lru, tuple)
 		add(lru, tuple)
 		return tuple.value
 	end
 
-	function draw_cached( ... )
-		-- body
+	function draw_cached( sprite, x, y, angle )
+		-- TODO
 	end
-
 end
 
 
@@ -663,7 +662,7 @@ local angle = 0
 -- 	end
 
 -- 	cls()
--- 	ram_prerenders.ace.render_func(0, angle)
+-- 	rotatable_sprites.ace.render_func(0, angle)
 -- end
 
 __gfx__
