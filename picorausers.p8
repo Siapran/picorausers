@@ -270,10 +270,10 @@ function rotate( source, angle, size )
 
 			-- replicating the quadrant saves about 10% cpu
 			if xp == xp % size and yp == yp % size then
-				pset( x + half,  y + half, pget(       xp + xo,        yp + yo))
-				pset( y + half, -x + half, pget(       yp + xo, size - xp + yo))
+				pset( x + half,  y + half, pget(	   xp + xo,		yp + yo))
+				pset( y + half, -x + half, pget(	   yp + xo, size - xp + yo))
 				pset(-x + half, -y + half, pget(size - xp + xo, size - yp + yo))
-				pset(-y + half,  x + half, pget(size - yp + xo,        xp + yo))
+				pset(-y + half,  x + half, pget(size - yp + xo,		xp + yo))
 			end
 		end
 	end
@@ -288,7 +288,7 @@ rauser.types = {
 }
 
 rauser.current_type = {
-	gun    = 1,
+	gun	= 1,
 	body   = 1,
 	engine = 1
 }
@@ -454,13 +454,13 @@ function make_adress_supplier( layout, adress, step )
 end
 
 function hex(value)
-    local b, k, res, i, d = 16, "0123456789abcdef", "", 0
-    while value > 0 do
-        i = i + 1
-        value, d = flr(value / b), (value % b) + 1
-        res = sub(k, d, d) .. res
-    end
-    return "0x" .. res
+	local b, k, res, i, d = 16, "0123456789abcdef", "", 0
+	while value > 0 do
+		i = i + 1
+		value, d = flr(value / b), (value % b) + 1
+		res = sub(k, d, d) .. res
+	end
+	return "0x" .. res
 end
 
 local name = ""
@@ -541,96 +541,37 @@ function draw_loading( )
 end
 
 
-function lru_new(max_size)
+-- caching mechanism, inspired by Boris Nagaev's lua-lru
+do
+	local map = {}
+	local lru = {}
+	for i=0,7 do
+		add(lru, { owner = nil, value = 0 + i })
+	end
 
-    local size = 0
-    local map = {}
+	function find_or_create( key )
+		local tuple = map[key]
+		if not tuple then
+			tuple = lru[1]
+			if tuple.owner then
+				map[tuple.owner] = nil
+			end
+			tuple.owner = key
+			map[key] = tuple
+		end
+		del(lru, tuple)
+		add(lru, tuple)
+		return tuple.value
+	end
 
-    local newest = nil
-    local oldest = nil
-    local removed_tuple
+	function draw_cached( ... )
+		-- body
+	end
 
-    local function cut(tuple)
-        local tuple_prev = tuple.prev
-        local tuple_next = tuple.next
-        tuple.prev = nil
-        tuple.next = nil
-        if tuple_prev and tuple_next then
-            tuple_prev.next = tuple_next
-            tuple_next.prev = tuple_prev
-        elseif tuple_prev then
-            tuple_prev.next = nil
-            oldest = tuple_prev
-        elseif tuple_next then
-            tuple_next.prev = nil
-            newest = tuple_next
-        else
-            newest = nil
-            oldest = nil
-        end
-    end
-
-    local function setNewest(tuple)
-        if not newest then
-            newest = tuple
-            oldest = tuple
-        else
-            tuple.next = newest
-            newest.prev = tuple
-            newest = tuple
-        end
-    end
-
-    local function del(key, tuple)
-        map[key] = nil
-        cut(tuple)
-        size = size - 1
-        removed_tuple = tuple
-    end
-
-    local function get(_, key)
-        local tuple = map[key]
-        if not tuple then
-            return nil
-        end
-        cut(tuple)
-        setNewest(tuple)
-        return tuple.value
-    end
-
-    local function set(_, key, value)
-        local tuple = map[key]
-        if tuple then
-            del(key, tuple)
-        end
-        if value ~= nil then
-            if size + 1 > max_size then
-            	del(oldest.key, oldest)
-            end
-            local tuple1 = removed_tuple or {}
-            map[key] = tuple1
-            tuple1.value = value
-            tuple1.key = key
-            size = size + 1
-            setNewest(tuple1)
-        end
-        removed_tuple = nil
-    end
-
-    local mt = {
-        __index = {
-            get = get,
-            set = set,
-        }
-    }
-
-    return setmetatable({}, mt)
 end
 
 
-function draw_cached( ... )
-	-- body
-end
+
 
 
 -- ################################################################
