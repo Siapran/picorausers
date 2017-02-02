@@ -479,14 +479,16 @@ function prerender( sprite )
 		local adress = take(adress_supplier)
 		-- printh(name .. " - " .. hex(adress) .. " - " .. angle)
 		sprite.render_func(adress, angle)
-		if sprite.size > 1 then
+		if sprite.size <= 1 then
 			sprite.prerenders[angle] = adress
 		else
 			sprite.prerenders[angle] = {}
+			local n = 1
 			for i=0,sprite.size-1 do
-				for 0=1,sprite.size-1 do
-					sprite.prerenders[angle][i * sprite.size * j] =
-						adress + i * 512 + j * 4 
+				for j=0,sprite.size-1 do
+					sprite.prerenders[angle][n] =
+						adress + i * 512 + j * 4
+					n += 1
 				end
 			end
 		end
@@ -571,15 +573,11 @@ do
 	end
 
 	for i=0,127 do
-		set_newest({
-			owner = nil,
-			value = 128 + i,
-			adress = 0x1000
-				+ flr(i / 16) * 512
-				+ (i % 16) * 4 })
+		set_newest({ owner = nil, value = 128 + i,
+			adress = 0x1000 + flr(i / 16) * 512 + (i % 16) * 4 })
 	end
 
-	local function assign_sprite_num( adress )
+	local function get_sprite_num( adress )
 		local tuple = map[adress]
 		if not tuple then
 			tuple = oldest.prev
@@ -596,14 +594,14 @@ do
 	end
 
 	function draw_cached( sprite, x, y, angle )
-		if sprite.size > 1 then
-			sprite.prerenders[angle] = adress
+		if sprite.size <= 1 then
+			spr(get_sprite_num(sprite.prerenders[angle]), x, y)
 		else
-			sprite.prerenders[angle] = {}
+			local n = 1
 			for i=0,sprite.size-1 do
-				for 0=1,sprite.size-1 do
-					sprite.prerenders[angle][i * sprite.size * j] =
-						adress + i * 512 + j * 4 
+				for j=0,sprite.size-1 do
+					spr(sprite.prerenders[angle][n], x + j * 8, y + i * 8)
+					n += 1
 				end
 			end
 		end
