@@ -547,9 +547,6 @@ function draw_loading( )
 	draw_rect(15, 56, percent + 1, 15, palette[3])
 	draw_rect(15, 56, percent, 14, palette[6])
 	print_centered(loading_message, 64, 60, palette[7], palette[3])
-	if done then
-		stop()
-	end
 end
 
 
@@ -577,6 +574,7 @@ do
 			adress = 0x1000 + flr(i / 16) * 512 + (i % 16) * 4 })
 	end
 
+	-- this function maps prerender adresses to an api accessible sprite cache
 	local function get_sprite_num( adress )
 		local tuple = map[adress]
 		if not tuple then
@@ -616,9 +614,26 @@ end
 -- #	MAIN LOOP
 -- ################################################################
 
+local update_functions = {
+	loading = update_loading
+}
+
+local draw_functions = {
+	loading = draw_loading
+}
+
+function change_state( state )
+	gamestate = state
+	_update = game_manager
+end
+
+function game_manager( )
+	_update = update_functions[gamestate]
+	_draw = draw_functions[gamestate]
+end
+
 function _init( )
-	_update = update_loading
-	_draw = draw_loading
+	change_state("loading")
 end
 
 local angle = 0
