@@ -479,7 +479,17 @@ function prerender( sprite )
 		local adress = take(adress_supplier)
 		-- printh(name .. " - " .. hex(adress) .. " - " .. angle)
 		sprite.render_func(adress, angle)
-		sprite.prerenders[angle] = adress
+		if sprite.size > 1 then
+			sprite.prerenders[angle] = adress
+		else
+			sprite.prerenders[angle] = {}
+			for i=0,sprite.size-1 do
+				for 0=1,sprite.size-1 do
+					sprite.prerenders[angle][i * sprite.size * j] =
+						adress + i * 512 + j * 4 
+				end
+			end
+		end
 		loading_progress = loading_progress + 1
 		yield()
 	end
@@ -543,29 +553,60 @@ end
 
 do
 	local map = {}
-	local lru = {}
-	for i=0,7 do
-		add(lru, { owner = nil, value = 0 + i })
+	local newest = {}
+	local oldest = {}
+	newest.next = oldest
+	oldest.prev = newest
+
+	local function set_newest( tuple )
+		tuple.next = newest.next
+		tuple.next.prev = tuple
+		newest.next = tuple
+		tuple.prev = newest
+	end
+
+	local function cut_tuple( tuple )
+		tuple.prev.next = tuple.next
+		tuple.next.prev = tuple.prev
+	end
+
+	for i=0,127 do
+		set_newest({
+			owner = nil,
+			value = 128 + i,
+			adress = 0x1000
+				+ flr(i / 16) * 512
+				+ (i % 16) * 4 })
 	end
 
 	local function assign_sprite_num( adress )
 		local tuple = map[adress]
 		if not tuple then
-			tuple = lru[1]
+			tuple = oldest.prev
 			if tuple.owner then
 				map[tuple.owner] = nil
 			end
-			copy_gfx(adress, adress, 8, 8)
+			copy_gfx(adress, tuple.adress, 8, 8)
 			tuple.owner = adress
 			map[adress] = tuple
 		end
-		del(lru, tuple)
-		add(lru, tuple)
+		cut_tuple(tuple)
+		set_newest(tuple)
 		return tuple.value
 	end
 
 	function draw_cached( sprite, x, y, angle )
-		-- TODO
+		if sprite.size > 1 then
+			sprite.prerenders[angle] = adress
+		else
+			sprite.prerenders[angle] = {}
+			for i=0,sprite.size-1 do
+				for 0=1,sprite.size-1 do
+					sprite.prerenders[angle][i * sprite.size * j] =
+						adress + i * 512 + j * 4 
+				end
+			end
+		end
 	end
 end
 
