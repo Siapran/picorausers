@@ -1,6 +1,79 @@
 pico-8 cartridge // http://www.pico-8.com
-version 5
+version 8
 __lua__
+
+-- ################################################################
+-- #	OOP BOILERPLATE
+-- ################################################################
+local timeref = 0
+do
+	function metatable_search( k, list )
+		for e in all(list) do
+			local v = e[k]
+			if v then return v end
+		end
+	end
+
+	function metatable_cache( self, k )
+		local v = metatable_search(k, self.__parents)
+		self[k] = v
+		return v
+	end
+
+	-- genealogy is 
+	function make_genealogy( self, res, has )
+		res = res or {}
+		has = has or {}
+		local parents = self.__parents
+		if has[self] then
+			return
+		end
+		if parents and #parents > 0 then
+			for parent in all(parents) do
+				make_genealogy(parent, res, has)
+			end
+		end
+		add(res, self)
+		has[self] = true
+		return res
+	end
+
+	-- make a class with simple or multiple inheritance
+	-- inheritance is implemented as cached first found
+	-- do NOT change class methods at runtime, just don't
+	function make_class( ... )
+		local res = {}
+		res.__parents = {...}
+		res.__genealogy = make_genealogy(res)
+		-- inherited methods are cached to improve runtime performance
+		-- caching is done per class, not per object
+		if #res.__parents > 0 then
+			-- this looks like a closure but actually isn't
+			setmetatable(res, {__index = metatable_cache})
+		end
+		
+		res.__index = res
+
+		return res
+	end
+end
+
+--------------------------------
+-- object class
+--
+local object = make_class()
+
+-- barebone constructor calls class-specific initialisers by traversing the genealogy
+-- use factories to create objects conveniently
+function object:new( proto )
+	res = proto or {}
+	setmetatable(res, self)
+	if res.init then
+		res:init()
+	end
+	return res
+end
+
 --------------------------------
 -- entities: the backbone of the game engine
 --
@@ -34,6 +107,7 @@ function entity:update( )
 		self.thread = nil
 	end
 end
+
 -- ################################################################
 -- #	PHYSICS AND HELPERS
 -- ################################################################
@@ -153,83 +227,13 @@ local steerable = make_class(collidable)
 function steerable:init( x, y, vx, vy, g  )
 	-- body
 end
--- ################################################################
--- #	OOP BOILERPLATE
--- ################################################################
-local timeref = 0
-do
-	function metatable_search( k, list )
-		for e in all(list) do
-			local v = e[k]
-			if v then return v end
-		end
-	end
 
-	function metatable_cache( self, k )
-		local v = metatable_search(k, self.__parents)
-		self[k] = v
-		return v
-	end
-
-	-- genealogy is 
-	function make_genealogy( self, res, has )
-		res = res or {}
-		has = has or {}
-		local parents = self.__parents
-		if has[self] then
-			return
-		end
-		if parents and #parents > 0 then
-			for parent in all(parents) do
-				make_genealogy(parent, res, has)
-			end
-		end
-		add(res, self)
-		has[self] = true
-		return res
-	end
-
-	-- make a class with simple or multiple inheritance
-	-- inheritance is implemented as cached first found
-	-- do NOT change class methods at runtime, just don't
-	function make_class( ... )
-		local res = {}
-		res.__parents = {...}
-		res.__genealogy = make_genealogy(res)
-		-- inherited methods are cached to improve runtime performance
-		-- caching is done per class, not per object
-		if #res.__parents > 0 then
-			-- this looks like a closure but actually isn't
-			setmetatable(res, {__index = metatable_cache})
-		end
-		
-		res.__index = res
-
-		return res
-	end
-end
-
---------------------------------
--- object class
---
-local object = make_class()
-
--- barebone constructor calls class-specific initialisers by traversing the genealogy
--- use factories to create objects conveniently
-function object:new( proto )
-	res = proto or {}
-	setmetatable(res, self)
-	if res.init then
-		res:init()
-	end
-	return res
-end
 -- ################################################################
 -- #	GRAPHICS AND CACHING
 -- ################################################################
 
 -- for some reason rectfill is TWICE as fast as cls...
--- should be fixed in 1.9
+-- should be fixed in 0.1.9
 function cls ( )
 	rectfill(0, 0, 128, 128, 0)
 end
@@ -266,10 +270,10 @@ function rotate( source, angle, size )
 
 			-- replicating the quadrant saves about 10% cpu
 			if xp == xp % size and yp == yp % size then
-				pset( x + half,  y + half, pget(       xp + xo,        yp + yo))
-				pset( y + half, -x + half, pget(       yp + xo, size - xp + yo))
+				pset( x + half,  y + half, pget(	   xp + xo,		yp + yo))
+				pset( y + half, -x + half, pget(	   yp + xo, size - xp + yo))
 				pset(-x + half, -y + half, pget(size - xp + xo, size - yp + yo))
-				pset(-y + half,  x + half, pget(size - yp + xo,        xp + yo))
+				pset(-y + half,  x + half, pget(size - yp + xo,		xp + yo))
 			end
 		end
 	end
@@ -475,19 +479,7 @@ function prerender( sprite )
 		local adress = take(adress_supplier)
 		-- printh(name .. " - " .. hex(adress) .. " - " .. angle)
 		sprite.render_func(adress, angle)
-		if sprite.size <= 1 then
-			sprite.prerenders[angle] = adress
-		else
-			sprite.prerenders[angle] = {}
-			local n = 1
-			for i=0,sprite.size-1 do
-				for j=0,sprite.size-1 do
-					sprite.prerenders[angle][n] =
-						adress + i * 512 + j * 4
-					n += 1
-				end
-			end
-		end
+		sprite.prerenders[angle] = adress
 		loading_progress = loading_progress + 1
 		yield()
 	end
@@ -543,88 +535,50 @@ function draw_loading( )
 	draw_rect(15, 56, percent + 1, 15, palette[3])
 	draw_rect(15, 56, percent, 14, palette[6])
 	print_centered(loading_message, 64, 60, palette[7], palette[3])
+	if done then
+		stop()
+	end
 end
 
 
 do
 	local map = {}
-	local newest = {}
-	local oldest = {}
-	newest.next = oldest
-	oldest.prev = newest
-
-	local function set_newest( tuple )
-		tuple.next = newest.next
-		tuple.next.prev = tuple
-		newest.next = tuple
-		tuple.prev = newest
+	local lru = {}
+	for i=0,7 do
+		add(lru, { owner = nil, value = 0 + i })
 	end
 
-	local function cut_tuple( tuple )
-		tuple.prev.next = tuple.next
-		tuple.next.prev = tuple.prev
-	end
-
-	for i=0,127 do
-		set_newest({ owner = nil, value = 128 + i,
-			adress = 0x1000 + flr(i / 16) * 512 + (i % 16) * 4 })
-	end
-
-	-- this function maps prerender adresses to an api accessible sprite cache
-	local function get_sprite_num( adress )
+	local function assign_sprite_num( adress )
 		local tuple = map[adress]
 		if not tuple then
-			tuple = oldest.prev
+			tuple = lru[1]
 			if tuple.owner then
 				map[tuple.owner] = nil
 			end
-			copy_gfx(adress, tuple.adress, 8, 8)
 			tuple.owner = adress
 			map[adress] = tuple
 		end
-		cut_tuple(tuple)
-		set_newest(tuple)
+		del(lru, tuple)
+		add(lru, tuple)
 		return tuple.value
 	end
 
 	function draw_cached( sprite, x, y, angle )
-		if sprite.size <= 1 then
-			spr(get_sprite_num(sprite.prerenders[angle]), x, y)
-		else
-			local n = 1
-			for i=0,sprite.size-1 do
-				for j=0,sprite.size-1 do
-					spr(sprite.prerenders[angle][n], x + j * 8, y + i * 8)
-					n += 1
-				end
-			end
-		end
+		-- TODO
 	end
 end
+
+
+
+
+
 -- ################################################################
 -- #	MAIN LOOP
 -- ################################################################
 
-local update_functions = {
-	loading = update_loading
-}
-
-local draw_functions = {
-	loading = draw_loading
-}
-
-function change_state( state )
-	gamestate = state
-	_update = game_manager
-end
-
-function game_manager( )
-	_update = update_functions[gamestate]
-	_draw = draw_functions[gamestate]
-end
-
 function _init( )
-	change_state("loading")
+	_update = update_loading
+	_draw = draw_loading
 end
 
 local angle = 0
