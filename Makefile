@@ -1,11 +1,14 @@
 SOURCEDIR := src
 SOURCES := $(shell find $(SOURCEDIR) -name '*.lua')
-CART := picorausers
+CART := $(shell find . -name '*.p8')
 
-all: $(CART).p8
+all: $(CART)
 
-$(CART).p8: $(CART).lua
-	p8tool build --lua $(CART).lua $(CART).p8
+$(CART): code.lua
+	p8tool build --lua code.lua $(CART)
 
-$(CART).lua: $(SOURCES)
-	cat $(SOURCES) > $(CART).lua
+code.lua: $(SOURCES)
+	lua depend.lua
+
+clean:
+	rm code.lua

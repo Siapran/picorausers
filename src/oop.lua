@@ -1,7 +1,7 @@
 -- ################################################################
 -- #	OOP BOILERPLATE
 -- ################################################################
-local timeref = 0
+
 do
 	function metatable_search( k, list )
 		for e in all(list) do
@@ -57,7 +57,7 @@ end
 --------------------------------
 -- object class
 --
-local object = make_class()
+object = make_class()
 
 -- barebone constructor calls class-specific initialisers by traversing the genealogy
 -- use factories to create objects conveniently

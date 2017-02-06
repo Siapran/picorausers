@@ -1,7 +1,9 @@
+require("oop")
+
 --------------------------------
 -- entities: the backbone of the game engine
 --
-local entity = make_class(object)
+entity = make_class(object)
 
 -- entities are registered in a static table
 entity.__entities = {}

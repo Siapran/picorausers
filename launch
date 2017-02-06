@@ -1,0 +1,2 @@
+#!/bin/bash
+/home/siapran/Programming/Lua/pico8/pico-8/pico8 -run picorausers.p8
