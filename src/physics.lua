@@ -1,22 +1,16 @@
 require("oop")
 
--- ################################################################
--- #	PHYSICS AND HELPERS
--- ################################################################
-rectangle = make_class(object)
+local rectangle = make_class(object)
 
-function rectangle:init( x0, y0, x1, y1 )
-	self.x0 = x0
-	self.y0 = y0
-	self.x1 = x1
-	self.y1 = y1
+function rectangle:init( x, y, half_width, half_height )
+	self.x = x
+	self.y = y
+	self.hw = half_width
+	self.hh = half_height
 end
 
 function rectangle:intersects( other )
-	return not(other.x0 >= self.x1
-		or other.x1 <= self.x0
-		or other.y0 >= self.y1
-		or other.y1 <= self.y0)
+	return 
 end
 
 function rectangle:contains( x, y )
@@ -44,7 +38,7 @@ function draw_rect( x, y, w, h, col )
 	rectfill(x, y, x + w, y + h, col)
 end
 
-collidable = make_class(object)
+local collidable = make_class(object)
 
 function collidable:init( x, y, vx, vy, g, colgroup )
 	self.x  = x or 0

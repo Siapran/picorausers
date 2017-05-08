@@ -15,6 +15,16 @@ function copy_gfx( source, dest, w, h )
 	end
 end
 
+function copy_screen( x0, y0, x1, y1, w, h )
+	local source = 0x6000 + y0 * 64 + x0 / 2
+	local dest = 0x6000 + y1 * 64 + x1 / 2
+	w = w / 2
+	h = h - 1
+	for i=0,h do
+		memcpy(dest + i * 64, source + i * 64, w)
+	end
+end
+
 -- rotates a sprite around its center
 -- source: sprite number
 -- angle: rotation angle (0..1)

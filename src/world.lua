@@ -1,6 +1,8 @@
 require("oop")
+require("quadtree")
+require("physics")
 
-world = make_class(object)
+local world = make_class(object)
 
 function world:init( )
 	self.bounds = rectangle:new(0, 0, 1024, 512)
@@ -11,4 +13,8 @@ function world:update( )
 	entity.foreach(function ( ent )
 		quadtree:insert(ent)
 	end)
+end
+
+function world:insert( collidable )
+	
 end

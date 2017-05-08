@@ -1,23 +1,19 @@
--- ################################################################
--- #	OOP BOILERPLATE
--- ################################################################
-
 do
-	function metatable_search( k, list )
+	local function metatable_search( k, list )
 		for e in all(list) do
 			local v = e[k]
 			if v then return v end
 		end
 	end
 
-	function metatable_cache( self, k )
+	local function metatable_cache( self, k )
 		local v = metatable_search(k, self.__parents)
 		self[k] = v
 		return v
 	end
 
 	-- genealogy is 
-	function make_genealogy( self, res, has )
+	local function make_genealogy( self, res, has )
 		res = res or {}
 		has = has or {}
 		local parents = self.__parents
@@ -41,10 +37,10 @@ do
 		local res = {}
 		res.__parents = {...}
 		res.__genealogy = make_genealogy(res)
+		res.__instanceof_cache = {}
 		-- inherited methods are cached to improve runtime performance
 		-- caching is done per class, not per object
 		if #res.__parents > 0 then
-			-- this looks like a closure but actually isn't
 			setmetatable(res, {__index = metatable_cache})
 		end
 		
@@ -57,15 +53,48 @@ end
 --------------------------------
 -- object class
 --
-object = make_class()
+local object = make_class()
 
--- barebone constructor calls class-specific initialisers by traversing the genealogy
+
 -- use factories to create objects conveniently
-function object:new( proto )
-	res = proto or {}
+function object:new( ... )
+	local res = {}
 	setmetatable(res, self)
 	if res.init then
-		res:init()
+		res:init(...)
 	end
 	return res
+end
+
+function object:instanceof( class )
+	local cache = self.__instanceof_cache
+	if cache[class] ~= nil then
+		return cache[class]
+	else
+		for v in all(self.__genealogy) do
+			if class == v then
+				cache[class] = true
+				return true
+			end
+		end
+		cache[class] = false
+		return false
+	end
+end
+
+-- general purpose utils
+
+-- asssign unique ids to tables
+do
+    local cache = setmetatable({}, {__mode = "k"})
+    local id = 0
+    function identifier( table )
+        if cache[table] then
+            return cache[table]
+        else
+            cache[table] = id
+            id = id + 1
+            return id
+        end
+    end
 end

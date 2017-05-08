@@ -1,7 +1,3 @@
--- ################################################################
--- #	OOP BOILERPLATE
--- ################################################################
-
 do
 	function metatable_search( k, list )
 		for e in all(list) do
@@ -70,9 +66,28 @@ function object:new( proto )
 	return res
 end
 
--- ################################################################
--- #	PHYSICS AND HELPERS
--- ################################################################
+rauser = make_class(object)
+
+rauser.types = {
+	gun = {"original", "beam", "spread", "missiles", "cannon"},
+	body = {"original", "armor", "melee", "nuke", "bomb"},
+	engine = {"original", "superboost", "gungine", "underwater", "hover"}
+}
+
+rauser.current_type = {
+	gun    = 1,
+	body   = 1,
+	engine = 1
+}
+
+function rauser:init(  )
+	-- body
+end
+
+function rauser:update( )
+	
+end
+
 rectangle = make_class(object)
 
 function rectangle:init( x0, y0, x1, y1 )
@@ -112,6 +127,82 @@ end
 
 function draw_rect( x, y, w, h, col )
 	rectfill(x, y, x + w, y + h, col)
+end
+
+quadtree = make_class(object)
+
+quadtree.__max_objects = 8
+quadtree.__max_levels  = 8
+
+function quadtree:init( level, bounds )
+	self.level = level or 0
+	self.objects = {}
+	self.nodes = {}
+	self.bounds = bounds
+end
+
+function quadtree:split( )
+	local sub_rectangles = self.bounds:split()
+	for i=1,4 do
+		self.nodes[i] = quadtree:new(self.level + 1, sub_rectangles[i])
+	end
+end
+
+function quadtree:getindex( bounds )
+	local index = nil
+	local mx, my = self.bounds:midpoints()
+	local top = self
+end
+
+function quadtree:collide( collidable )
+	-- body
+end
+
+--------------------------------
+-- entities: the backbone of the game engine
+--
+entity = make_class(object)
+
+-- entities are registered in a static table
+entity.__entities = {}
+
+function entity.foreach( func )
+	for _,ent in pairs(entity.__entities) do
+		func(ent)
+	end
+end
+
+function entity:init( )
+	entity.__entities[self] = self
+end
+
+function entity:destroy( )
+	entity.__entities[self] = nil
+end
+
+-- entities run a thread that yields to the update loop
+function entity:run( func )
+	self.thread = cocreate(func)
+end
+
+function entity:update( )
+	local result = self.thread and coresume(self.thread, self)
+	if not result then
+		self.thread = nil
+	end
+end
+
+world = make_class(object)
+
+function world:init( )
+	self.bounds = rectangle:new(0, 0, 1024, 512)
+end
+
+function world:update( )
+	self.tree = quadtree:new(0, bounds)
+	entity.foreach(function ( ent )
+		quadtree:insert(ent)
+	end)
 end
 
 collidable = make_class(object)
@@ -508,9 +599,6 @@ do
 	end
 end
 
--- ################################################################
--- #	MAIN LOOP
--- ################################################################
 timeref = 0
 
 do
@@ -534,92 +622,5 @@ do
 
 	function _init( )
 		change_state("loading")
-	end
-end
-
-world = make_class(object)
-
-function world:init( )
-	self.bounds = rectangle:new(0, 0, 1024, 512)
-end
-
-function world:update( )
-	self.tree = quadtree:new(0, bounds)
-	entity.foreach(function ( ent )
-		quadtree:insert(ent)
-	end)
-end
-
-rauser = make_class(object)
-
-rauser.types = {
-	gun = {"original", "beam", "spread", "missiles", "cannon"},
-	body = {"original", "armor", "melee", "nuke", "bomb"},
-	engine = {"original", "superboost", "gungine", "underwater", "hover"}
-}
-
-rauser.current_type = {
-	gun	= 1,
-	body   = 1,
-	engine = 1
-}
-
-
-quadtree = make_class(object)
-
-quadtree.__max_objects = 8
-quadtree.__max_levels  = 8
-
-function quadtree:init( level, bounds )
-	self.level = level or 0
-	self.objects = {}
-	self.nodes = {}
-	self.bounds = bounds
-end
-
-function quadtree:split( )
-	local sub_rectangles = self.bounds:split()
-	for i=1,4 do
-		self.nodes[i] = quadtree:new(self.level + 1, sub_rectangles[i])
-	end
-end
-
-function quadtree:getindex( bounds )
-	local index = nil
-	local mx, my = self.bounds:midpoints()
-	local top = self
-end
-
---------------------------------
--- entities: the backbone of the game engine
---
-entity = make_class(object)
-
--- entities are registered in a static table
-entity.__entities = {}
-
-function entity.foreach( func )
-	for _,ent in pairs(entity.__entities) do
-		func(ent)
-	end
-end
-
-function entity:init( )
-	entity.__entities[self] = self
-end
-
-function entity:destroy( )
-	entity.__entities[self] = nil
-end
-
--- entities run a thread that yields to the update loop
-function entity:run( func )
-	self.thread = cocreate(func)
-end
-
-function entity:update( )
-	local result = self.thread and coresume(self.thread, self)
-	if not result then
-		self.thread = nil
 	end
 end

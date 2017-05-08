@@ -1,6 +1,6 @@
 require("oop")
 
-rauser = make_class(object)
+local rauser = make_class(steerable)
 
 rauser.types = {
 	gun = {"original", "beam", "spread", "missiles", "cannon"},
@@ -9,8 +9,15 @@ rauser.types = {
 }
 
 rauser.current_type = {
-	gun	= 1,
+	gun    = 1,
 	body   = 1,
 	engine = 1
 }
 
+function rauser:init(  )
+	
+end
+
+function rauser:update( )
+	
+end

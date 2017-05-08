@@ -1,6 +1,7 @@
 require("oop")
+require("rectangle")
 
-quadtree = make_class(object)
+local quadtree = make_class(object)
 
 quadtree.__max_objects = 8
 quadtree.__max_levels  = 8
