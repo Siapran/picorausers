@@ -96,6 +96,45 @@ do
     end
 end
 
+local vector2 = make_class(object)
+
+function vector2:init(x, y)
+	self.x = x
+	self.y = y
+end
+
+function vector2:__unm( )
+	return vector2:new(-self.x, -self.y)
+end
+
+function vector2:__add( other )
+	if type(other) == "table" then
+		return vector2:new(self.x + other.x, self.y + other.y)
+	else
+		return vector2:new(self + other.x, self + other.y)
+	end
+end
+
+function vector2:__sub( other )
+	return self + (-other)
+end
+
+function vector2:__mul( other )
+	return vector2:new(self.x * other, self.y * other)
+end
+
+function vector2:__div( other )
+	return vector2:new(self.x / other, self.y / other)
+end
+
+function vector2:__mod( other )
+	return vector2:new(self.x % other, self.y % other)
+end
+
+function vector2:__eq( other )
+	return self.x == other.x and self.y == other.y
+end
+
 local quadtree = make_class(object)
 
 quadtree.__max_objects = 8
@@ -121,97 +160,38 @@ function quadtree:getindex( bounds )
 	local top = self
 end
 
-local rectangle = make_class(object)
+--------------------------------
+-- entities: the backbone of the game engine
+--
+local entity = make_class(object)
 
-function rectangle:init( x, y, half_width, half_height )
-	self.x = x
-	self.y = y
-	self.hw = half_width
-	self.hh = half_height
+-- entities are registered in a static table
+entity.__entities = {}
+
+function entity.foreach( func )
+	for _,ent in pairs(entity.__entities) do
+		func(ent)
+	end
 end
 
-function rectangle:intersects( other )
-	return 
+function entity:init( )
+	entity.__entities[self] = self
 end
 
-function rectangle:contains( x, y )
-	return self.x0 <= x and x < self.x1 and
-		self.y0 <= y and y < self.y1
+function entity:destroy( )
+	entity.__entities[self] = nil
 end
 
-function rectangle:split( )
-	local mx, my = self:midpoints()
-	return {
-		rectangle:new(self.x0, self.y0, mx, my),
-		rectangle:new(mx, self.y0, self.x1, my),
-		rectangle:new(mx, my, self.x1, self.y1),
-		rectangle:new(self.x0, my, mx, self.y1)
-	}
+-- entities run a thread that yields to the update loop
+function entity:run( func )
+	self.thread = cocreate(func)
 end
 
-function rectangle:midpoints( )
-	return
-		(self.x0 + self.x1) / 2,
-		(self.y0 + self.y1) / 2
-end
-
-function draw_rect( x, y, w, h, col )
-	rectfill(x, y, x + w, y + h, col)
-end
-
-local collidable = make_class(object)
-
-function collidable:init( x, y, vx, vy, g, colgroup )
-	self.x  = x or 0
-	self.y  = y or 0
-	self.vx = vx or 0
-	self.vy = vy or 0
-	self.g  = g or 0
-	self.colgroup = colgroup or 0
-end
-
-function collidable:update( )
-	self.x += self.vx
-	self.y += self.vy + g
-end
-
-function collidable:teleport( x, y )
-	self.x = x or 0
-	self.y = y or 0
-end
-
-boat = make_class(collidable)
-
-function boat:init( x, y, vx, vy, g, colgroup, bounds )
-	collidable.init(self, x, y, vx, vy, g, colgroup)
-	self.bounds = bounds
-end
-
-function boat:get_bounds( )
-	return self.bounds
-end
-
-steerable = make_class(collidable)
-
-function steerable:init( x, y, vx, vy, g  )
-	-- body
-end
-
-local world = make_class(object)
-
-function world:init( )
-	self.bounds = rectangle:new(0, 0, 1024, 512)
-end
-
-function world:update( )
-	self.tree = quadtree:new(0, bounds)
-	entity.foreach(function ( ent )
-		quadtree:insert(ent)
-	end)
-end
-
-function world:insert( collidable )
-	
+function entity:update( )
+	local result = self.thread and coresume(self.thread, self)
+	if not result then
+		self.thread = nil
+	end
 end
 -- ################################################################
 -- #	GRAPHICS AND CACHING
@@ -586,70 +566,125 @@ do
 	end
 end
 
-rauser = make_class(steerable)
+do
+	rauser = make_class(steerable)
 
-rauser.types = {
-	gun = {"original", "beam", "spread", "missiles", "cannon"},
-	body = {"original", "armor", "melee", "nuke", "bomb"},
-	engine = {"original", "superboost", "gungine", "underwater", "hover"}
-}
+	rauser.types = {
+		gun = {"original", "beam", "spread", "missiles", "cannon"},
+		body = {"original", "armor", "melee", "nuke", "bomb"},
+		engine = {"original", "superboost", "gungine", "underwater", "hover"}
+	}
 
-rauser.current_type = {
-	gun    = 1,
-	body   = 1,
-	engine = 1
-}
+	rauser.current_type = {
+		gun    = 1,
+		body   = 1,
+		engine = 1
+	}
 
-rauser.coordinates = {
-	x = 64,
-	y = 64
-}
+	rauser.position = vector2:new(64, 64)
+	rauser.velocity = vector2:new(0, 0)
 
-rauser.angle = 0
+	rauser.angle = 0
+	rauser.thrust = 0
+	rauser.gravity = 0
 
-rauser.speed = 0
+	local sprite = rotatable_sprites.rauser
 
-function rauser_update( ... )
-	rauser.angle = (rauser.angle + 1/64) % 1
-end
+	function rauser:draw( ... )
+		local x = rauser.position.x
+		local y = rauser.position.y
 
-function rauser_draw( ... )
-	cls()
-	draw_cached(rotatable_sprites.ace, rauser.coordinates.x, rauser.coordinates.y, flr(rauser.angle * 16) / 16)
-end
+		-- camera(x - 64, y - 64)
+		-- for i=0,128,16 do
+		-- 	for j=0,128,16 do
+		-- 		pset(x - 64 + i - x % 16, y - 64 + j - y % 16, 7)
+		-- 	end
+		-- end
+		draw_cached(sprite, x - 8, y - 8, flr(rauser.angle * 16) / 16)
+	end
 
---------------------------------
--- entities: the backbone of the game engine
---
-local entity = make_class(object)
+	function rauser:update( ... )
+		rauser.gravity += 0.15
+		if btn (0) then
+			rauser.angle = (rauser.angle + 1/48) % 1
+		end
+		if btn (1) then
+			rauser.angle = (rauser.angle - 1/48) % 1
+		end
+		if btn (2) then
+			rauser.thrust += 2
+			rauser.gravity *= 0.01
+		end
+		rauser.thrust *= 0.25
+		rauser.gravity *= 0.7
+		rauser.velocity += vector2:new(rauser.thrust * cos(rauser.angle + 1/4), rauser.thrust * sin(rauser.angle + 1/4))
+		rauser.velocity.y += rauser.gravity
+		rauser.velocity *= 0.99
 
--- entities are registered in a static table
-entity.__entities = {}
+		rauser.position += rauser.velocity
+		rauser.position %= 128
 
-function entity.foreach( func )
-	for _,ent in pairs(entity.__entities) do
-		func(ent)
+	end
+
+	function rauser_update( ... )
+		rauser:update()
+	end
+
+	function rauser_draw( ... )
+		cls()
+		rauser:draw()
 	end
 end
 
-function entity:init( )
-	entity.__entities[self] = self
+local rectangle = make_class(object)
+
+function rectangle:init( x, y, half_width, half_height )
+	self.x = x
+	self.y = y
+	self.hw = half_width
+	self.hh = half_height
 end
 
-function entity:destroy( )
-	entity.__entities[self] = nil
+function rectangle:intersects( other )
+	return 
 end
 
--- entities run a thread that yields to the update loop
-function entity:run( func )
-	self.thread = cocreate(func)
+function rectangle:contains( x, y )
+	return self.x0 <= x and x < self.x1 and
+		self.y0 <= y and y < self.y1
 end
 
-function entity:update( )
-	local result = self.thread and coresume(self.thread, self)
-	if not result then
-		self.thread = nil
+function rectangle:split( )
+	local mx, my = self:midpoints()
+	return {
+		rectangle:new(self.x0, self.y0, mx, my),
+		rectangle:new(mx, self.y0, self.x1, my),
+		rectangle:new(mx, my, self.x1, self.y1),
+		rectangle:new(self.x0, my, mx, self.y1)
+	}
+end
+
+function rectangle:midpoints( )
+	return
+		(self.x0 + self.x1) / 2,
+		(self.y0 + self.y1) / 2
+end
+
+function draw_rect( x, y, w, h, col )
+	rectfill(x, y, x + w, y + h, col)
+end
+
+local world = make_class(object)
+
+do
+	function world:init( )
+		self.bounds = rectangle:new(0, 0, 1024, 512)
 	end
+
+	function world:draw( )
+		
+	end
+	
 end
 
 timeref = 0
