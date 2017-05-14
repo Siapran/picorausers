@@ -15,6 +15,7 @@ do
 	}
 
 	function change_state( state )
+		printh("Changed state to " .. state)
 		gamestate = state
 		_update = update_functions[gamestate]
 		_draw = draw_functions[gamestate]

@@ -283,11 +283,11 @@ do
 				-- copy_gfx(0x2000, 0x6000, 128, 64)
 				-- copy_gfx(0x4400, 0x7000, 128, 64)
 				done = true
+				change_state("rauser_test")
 				return
 			end
 			cpu = cpu + stat(1)
 		end
-		change_state("rauser_test")
 	end
 
 	function print_centered( str, x, y, col, shadow )
@@ -360,9 +360,10 @@ do
 			spr(get_sprite_num(sprite.prerenders[angle]), x, y)
 		else
 			local n = 1
+			printh("reached")
 			for i=0,sprite.size-1 do
 				for j=0,sprite.size-1 do
-					spr(sprite.prerenders[angle][n], x + j * 8, y + i * 8)
+					spr(get_sprite_num(sprite.prerenders[angle][n]), x + j * 8, y + i * 8)
 					n += 1
 				end
 			end

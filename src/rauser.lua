@@ -25,9 +25,10 @@ rauser.angle = 0
 rauser.speed = 0
 
 function rauser_update( ... )
-	
+	rauser.angle = (rauser.angle + 1/64) % 1
 end
 
 function rauser_draw( ... )
-	
+	cls()
+	draw_cached(rotatable_sprites.ace, rauser.coordinates.x, rauser.coordinates.y, flr(rauser.angle * 16) / 16)
 end

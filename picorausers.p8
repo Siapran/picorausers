@@ -1,6 +1,221 @@
 pico-8 cartridge // http://www.pico-8.com
 version 8
 __lua__
+do
+	local function metatable_search( k, list )
+		for e in all(list) do
+			local v = e[k]
+			if v then return v end
+		end
+	end
+
+	local function metatable_cache( self, k )
+		local v = metatable_search(k, self.__parents)
+		self[k] = v
+		return v
+	end
+
+	local function make_genealogy( self, res, has )
+		res = res or {}
+		has = has or {}
+		local parents = self.__parents
+		if has[self] then
+			return
+		end
+		if parents and #parents > 0 then
+			for parent in all(parents) do
+				make_genealogy(parent, res, has)
+			end
+		end
+		add(res, self)
+		has[self] = true
+		return res
+	end
+
+	-- make a class with simple or multiple inheritance
+	-- inheritance is implemented as cached first found
+	-- do NOT change class methods at runtime, just don't
+	function make_class( ... )
+		local res = {}
+		res.__parents = {...}
+		res.__genealogy = make_genealogy(res)
+		res.__instanceof_cache = {}
+		-- inherited methods are cached to improve runtime performance
+		-- caching is done per class, not per object
+		if #res.__parents > 0 then
+			setmetatable(res, {__index = metatable_cache})
+		end
+		
+		res.__index = res
+
+		return res
+	end
+end
+
+--------------------------------
+-- object class
+--
+local object = make_class()
+
+function object:new( ... )
+	local res = {}
+	setmetatable(res, self)
+	if res.init then
+		res:init(...)
+	end
+	return res
+end
+
+function object:instanceof( class )
+	local cache = self.__instanceof_cache
+	if cache[class] ~= nil then
+		return cache[class]
+	else
+		for v in all(self.__genealogy) do
+			if class == v then
+				cache[class] = true
+				return true
+			end
+		end
+		cache[class] = false
+		return false
+	end
+end
+
+-- general purpose utils
+
+-- asssign unique ids to tables
+do
+    local cache = setmetatable({}, {__mode = "k"})
+    local id = 0
+    function identifier( table )
+        if cache[table] then
+            return cache[table]
+        else
+            cache[table] = id
+            id = id + 1
+            return id
+        end
+    end
+end
+
+local quadtree = make_class(object)
+
+quadtree.__max_objects = 8
+quadtree.__max_levels  = 8
+
+function quadtree:init( level, bounds )
+	self.level = level or 0
+	self.objects = {}
+	self.nodes = {}
+	self.bounds = bounds
+end
+
+function quadtree:split( )
+	local sub_rectangles = self.bounds:split()
+	for i=1,4 do
+		self.nodes[i] = quadtree:new(self.level + 1, sub_rectangles[i])
+	end
+end
+
+function quadtree:getindex( bounds )
+	local index = nil
+	local mx, my = self.bounds:midpoints()
+	local top = self
+end
+
+local rectangle = make_class(object)
+
+function rectangle:init( x, y, half_width, half_height )
+	self.x = x
+	self.y = y
+	self.hw = half_width
+	self.hh = half_height
+end
+
+function rectangle:intersects( other )
+	return 
+end
+
+function rectangle:contains( x, y )
+	return self.x0 <= x and x < self.x1 and
+		self.y0 <= y and y < self.y1
+end
+
+function rectangle:split( )
+	local mx, my = self:midpoints()
+	return {
+		rectangle:new(self.x0, self.y0, mx, my),
+		rectangle:new(mx, self.y0, self.x1, my),
+		rectangle:new(mx, my, self.x1, self.y1),
+		rectangle:new(self.x0, my, mx, self.y1)
+	}
+end
+
+function rectangle:midpoints( )
+	return
+		(self.x0 + self.x1) / 2,
+		(self.y0 + self.y1) / 2
+end
+
+function draw_rect( x, y, w, h, col )
+	rectfill(x, y, x + w, y + h, col)
+end
+
+local collidable = make_class(object)
+
+function collidable:init( x, y, vx, vy, g, colgroup )
+	self.x  = x or 0
+	self.y  = y or 0
+	self.vx = vx or 0
+	self.vy = vy or 0
+	self.g  = g or 0
+	self.colgroup = colgroup or 0
+end
+
+function collidable:update( )
+	self.x += self.vx
+	self.y += self.vy + g
+end
+
+function collidable:teleport( x, y )
+	self.x = x or 0
+	self.y = y or 0
+end
+
+boat = make_class(collidable)
+
+function boat:init( x, y, vx, vy, g, colgroup, bounds )
+	collidable.init(self, x, y, vx, vy, g, colgroup)
+	self.bounds = bounds
+end
+
+function boat:get_bounds( )
+	return self.bounds
+end
+
+steerable = make_class(collidable)
+
+function steerable:init( x, y, vx, vy, g  )
+	-- body
+end
+
+local world = make_class(object)
+
+function world:init( )
+	self.bounds = rectangle:new(0, 0, 1024, 512)
+end
+
+function world:update( )
+	self.tree = quadtree:new(0, bounds)
+	entity.foreach(function ( ent )
+		quadtree:insert(ent)
+	end)
+end
+
+function world:insert( collidable )
+	
+end
 -- ################################################################
 -- #	GRAPHICS AND CACHING
 -- ################################################################
@@ -286,6 +501,7 @@ do
 				-- copy_gfx(0x2000, 0x6000, 128, 64)
 				-- copy_gfx(0x4400, 0x7000, 128, 64)
 				done = true
+				change_state("rauser_test")
 				return
 			end
 			cpu = cpu + stat(1)
@@ -362,139 +578,15 @@ do
 			spr(get_sprite_num(sprite.prerenders[angle]), x, y)
 		else
 			local n = 1
+			printh("reached")
 			for i=0,sprite.size-1 do
 				for j=0,sprite.size-1 do
-					spr(sprite.prerenders[angle][n], x + j * 8, y + i * 8)
+					spr(get_sprite_num(sprite.prerenders[angle][n]), x + j * 8, y + i * 8)
 					n += 1
 				end
 			end
 		end
 	end
-end
-
-timeref = 0
-
-do
-	local update_functions = {
-		loading = update_loading,
-		rauser_test = rauser_update,
-	}
-
-	local draw_functions = {
-		loading = draw_loading,
-		rauser_test = rauser_draw,
-	}
-
-	function change_state( state )
-		gamestate = state
-		_update = game_manager
-	end
-
-	function game_manager( )
-		_update = update_functions[gamestate]
-		_draw = draw_functions[gamestate]
-	end
-
-	function _init( )
-		change_state("loading")
-	end
-end
-do
-	local function metatable_search( k, list )
-		for e in all(list) do
-			local v = e[k]
-			if v then return v end
-		end
-	end
-
-	local function metatable_cache( self, k )
-		local v = metatable_search(k, self.__parents)
-		self[k] = v
-		return v
-	end
-
-	local function make_genealogy( self, res, has )
-		res = res or {}
-		has = has or {}
-		local parents = self.__parents
-		if has[self] then
-			return
-		end
-		if parents and #parents > 0 then
-			for parent in all(parents) do
-				make_genealogy(parent, res, has)
-			end
-		end
-		add(res, self)
-		has[self] = true
-		return res
-	end
-
-	-- make a class with simple or multiple inheritance
-	-- inheritance is implemented as cached first found
-	-- do NOT change class methods at runtime, just don't
-	function make_class( ... )
-		local res = {}
-		res.__parents = {...}
-		res.__genealogy = make_genealogy(res)
-		res.__instanceof_cache = {}
-		-- inherited methods are cached to improve runtime performance
-		-- caching is done per class, not per object
-		if #res.__parents > 0 then
-			setmetatable(res, {__index = metatable_cache})
-		end
-		
-		res.__index = res
-
-		return res
-	end
-end
-
---------------------------------
--- object class
---
-local object = make_class()
-
-function object:new( ... )
-	local res = {}
-	setmetatable(res, self)
-	if res.init then
-		res:init(...)
-	end
-	return res
-end
-
-function object:instanceof( class )
-	local cache = self.__instanceof_cache
-	if cache[class] ~= nil then
-		return cache[class]
-	else
-		for v in all(self.__genealogy) do
-			if class == v then
-				cache[class] = true
-				return true
-			end
-		end
-		cache[class] = false
-		return false
-	end
-end
-
--- general purpose utils
-
--- asssign unique ids to tables
-do
-    local cache = setmetatable({}, {__mode = "k"})
-    local id = 0
-    function identifier( table )
-        if cache[table] then
-            return cache[table]
-        else
-            cache[table] = id
-            id = id + 1
-            return id
-        end
-    end
 end
 
 rauser = make_class(steerable)
@@ -511,122 +603,22 @@ rauser.current_type = {
 	engine = 1
 }
 
-local rectangle = make_class(object)
+rauser.coordinates = {
+	x = 64,
+	y = 64
+}
 
-function rectangle:init( x, y, half_width, half_height )
-	self.x = x
-	self.y = y
-	self.hw = half_width
-	self.hh = half_height
+rauser.angle = 0
+
+rauser.speed = 0
+
+function rauser_update( ... )
+	rauser.angle = (rauser.angle + 1/64) % 1
 end
 
-function rectangle:intersects( other )
-	return 
-end
-
-function rectangle:contains( x, y )
-	return self.x0 <= x and x < self.x1 and
-		self.y0 <= y and y < self.y1
-end
-
-function rectangle:split( )
-	local mx, my = self:midpoints()
-	return {
-		rectangle:new(self.x0, self.y0, mx, my),
-		rectangle:new(mx, self.y0, self.x1, my),
-		rectangle:new(mx, my, self.x1, self.y1),
-		rectangle:new(self.x0, my, mx, self.y1)
-	}
-end
-
-function rectangle:midpoints( )
-	return
-		(self.x0 + self.x1) / 2,
-		(self.y0 + self.y1) / 2
-end
-
-function draw_rect( x, y, w, h, col )
-	rectfill(x, y, x + w, y + h, col)
-end
-
-local collidable = make_class(object)
-
-function collidable:init( x, y, vx, vy, g, colgroup )
-	self.x  = x or 0
-	self.y  = y or 0
-	self.vx = vx or 0
-	self.vy = vy or 0
-	self.g  = g or 0
-	self.colgroup = colgroup or 0
-end
-
-function collidable:update( )
-	self.x += self.vx
-	self.y += self.vy + g
-end
-
-function collidable:teleport( x, y )
-	self.x = x or 0
-	self.y = y or 0
-end
-
-boat = make_class(collidable)
-
-function boat:init( x, y, vx, vy, g, colgroup, bounds )
-	collidable.init(self, x, y, vx, vy, g, colgroup)
-	self.bounds = bounds
-end
-
-function boat:get_bounds( )
-	return self.bounds
-end
-
-steerable = make_class(collidable)
-
-function steerable:init( x, y, vx, vy, g  )
-	-- body
-end
-
-local quadtree = make_class(object)
-
-quadtree.__max_objects = 8
-quadtree.__max_levels  = 8
-
-function quadtree:init( level, bounds )
-	self.level = level or 0
-	self.objects = {}
-	self.nodes = {}
-	self.bounds = bounds
-end
-
-function quadtree:split( )
-	local sub_rectangles = self.bounds:split()
-	for i=1,4 do
-		self.nodes[i] = quadtree:new(self.level + 1, sub_rectangles[i])
-	end
-end
-
-function quadtree:getindex( bounds )
-	local index = nil
-	local mx, my = self.bounds:midpoints()
-	local top = self
-end
-
-local world = make_class(object)
-
-function world:init( )
-	self.bounds = rectangle:new(0, 0, 1024, 512)
-end
-
-function world:update( )
-	self.tree = quadtree:new(0, bounds)
-	entity.foreach(function ( ent )
-		quadtree:insert(ent)
-	end)
-end
-
-function world:insert( collidable )
-	
+function rauser_draw( ... )
+	cls()
+	draw_cached(rotatable_sprites.ace, rauser.coordinates.x, rauser.coordinates.y, flr(rauser.angle * 16) / 16)
 end
 
 --------------------------------
@@ -660,6 +652,31 @@ function entity:update( )
 	local result = self.thread and coresume(self.thread, self)
 	if not result then
 		self.thread = nil
+	end
+end
+
+timeref = 0
+
+do
+	local update_functions = {
+		loading = update_loading,
+		rauser_test = rauser_update,
+	}
+
+	local draw_functions = {
+		loading = draw_loading,
+		rauser_test = rauser_draw,
+	}
+
+	function change_state( state )
+		printh("Changed state to " .. state)
+		gamestate = state
+		_update = update_functions[gamestate]
+		_draw = draw_functions[gamestate]
+	end
+
+	function _init( )
+		change_state("loading")
 	end
 end
 __gfx__
