@@ -1,6 +1,7 @@
 require("oop")
+require("graphics")
 
-local rauser = make_class(steerable)
+rauser = make_class(steerable)
 
 rauser.types = {
 	gun = {"original", "beam", "spread", "missiles", "cannon"},
@@ -14,10 +15,19 @@ rauser.current_type = {
 	engine = 1
 }
 
-function rauser:init(  )
+rauser.coordinates = {
+	x = 64,
+	y = 64
+}
+
+rauser.angle = 0
+
+rauser.speed = 0
+
+function rauser_update( ... )
 	
 end
 
-function rauser:update( )
+function rauser_draw( ... )
 	
 end

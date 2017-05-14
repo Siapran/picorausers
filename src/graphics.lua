@@ -2,8 +2,11 @@
 -- #	GRAPHICS AND CACHING
 -- ################################################################
 
-screen_address = 0x6000
-palette = {0, 1, 2, 4, 9, 15, 7}
+-- forward declaration
+local rauser
+
+local screen_address = 0x6000
+local palette = {0, 1, 2, 4, 9, 15, 7}
 
 -- copies a portion of memory to another following the gxf memory layout
 -- does not work with odd widths
@@ -63,6 +66,7 @@ rotatable_sprites = {
 			rectfill(0, 0, 31, 15, 0)
 			-- ajust indexes
 			local nums = {}
+
 			for k,v in pairs(rauser.current_type) do
 				nums[k] = v - 1
 			end
@@ -283,6 +287,7 @@ do
 			end
 			cpu = cpu + stat(1)
 		end
+		change_state("rauser_test")
 	end
 
 	function print_centered( str, x, y, col, shadow )

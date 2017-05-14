@@ -12,7 +12,6 @@ do
 		return v
 	end
 
-	-- genealogy is 
 	local function make_genealogy( self, res, has )
 		res = res or {}
 		has = has or {}
@@ -55,8 +54,6 @@ end
 --
 local object = make_class()
 
-
--- use factories to create objects conveniently
 function object:new( ... )
 	local res = {}
 	setmetatable(res, self)
