@@ -29,6 +29,15 @@ do
 		return res
 	end
 
+	local function new( self, ... )
+		local res = {}
+		setmetatable(res, self)
+		if res.init then
+			res:init(...)
+		end
+		return res
+	end
+
 	-- make a class with simple or multiple inheritance
 	-- inheritance is implemented as cached first found
 	-- do NOT change class methods at runtime, just don't
@@ -42,26 +51,15 @@ do
 		if #res.__parents > 0 then
 			setmetatable(res, {__index = metatable_cache})
 		end
-		
+
+		res.__call = new
 		res.__index = res
 
 		return res
 	end
 end
 
---------------------------------
--- object class
---
 local object = make_class()
-
-function object:new( ... )
-	local res = {}
-	setmetatable(res, self)
-	if res.init then
-		res:init(...)
-	end
-	return res
-end
 
 function object:instanceof( class )
 	local cache = self.__instanceof_cache

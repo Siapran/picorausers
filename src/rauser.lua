@@ -17,8 +17,8 @@ do
 		engine = 1
 	}
 
-	rauser.position = vector2:new(64, 64)
-	rauser.velocity = vector2:new(0, 0)
+	rauser.position = vector2(64, 64)
+	rauser.velocity = vector2(0, 0)
 
 	rauser.angle = 0
 	rauser.thrust = 0
@@ -53,7 +53,7 @@ do
 		end
 		rauser.thrust *= 0.25
 		rauser.gravity *= 0.7
-		rauser.velocity += vector2:new(rauser.thrust * cos(rauser.angle + 1/4), rauser.thrust * sin(rauser.angle + 1/4))
+		rauser.velocity += vector2(rauser.thrust * cos(rauser.angle + 1/4), rauser.thrust * sin(rauser.angle + 1/4))
 		rauser.velocity.y += rauser.gravity
 		rauser.velocity *= 0.99
 
